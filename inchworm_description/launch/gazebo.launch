@@ -1,20 +1,33 @@
 <launch>
-  <include
-    file="$(find gazebo_ros)/launch/empty_world.launch" />
-  <node
-    name="tf_footprint_base"
-    pkg="tf"
-    type="static_transform_publisher"
-    args="0 0 0 0 0 0 base_link base_footprint 40" />
-  <node
-    name="spawn_model"
-    pkg="gazebo_ros"
-    type="spawn_model"
-    args="-file $(find inchworm_description)/urdf/inchworm_description.urdf -urdf -model inchworm_description"
-    output="screen" />
-  <node
-    name="fake_joint_calibration"
-    pkg="rostopic"
-    type="rostopic"
-    args="pub /calibrated std_msgs/Bool true" />
+  <arg name="model_name" default="inchworm"/>
+  <arg name="model" default="inchworm_description"/>
+  <arg name="gui" default="true"/>
+  <arg name="paused" default="true"/>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="gui" default="true"/>
+    <arg name="paused" default="true"/>
+  </include>
+
+  <!-- <node name="gazebo" pkg="gazebo_ros" type="gazebo" args="$(arg gui) $(arg paused) -gazebo_namespace $(arg model_name)" /> -->
+
+  <group ns="$(arg model_name)">
+
+    <param name="robot_description" command="$(find xacro)/xacro $(find inchworm_description)/urdf/$(arg model).urdf"/>
+
+    <node name="tf_footprint_base" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 base_link base_footprint 100" />
+
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+      <param name="use_gui" value="$(arg gui)"/>
+    </node>
+
+    <rosparam file="$(find inchworm_description)/config/joint_names_inchworm_description.yaml" command="load" />
+
+    <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="inchworm" />
+
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen"/>
+
+  </group>
+
+  <node name="spawn_model" pkg="gazebo_ros" type="spawn_model" args="-param $(arg model_name)/robot_description -urdf -model $(arg model_name)" output="screen" />
 </launch>
