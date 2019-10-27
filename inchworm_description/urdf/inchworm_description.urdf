@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<robot name="inchworm">
+<robot name="inchworm" 
+  xmlns:xacro="http://www.ros.org/wiki/xacro">
   <link name="base_link" />
   <link name="link_1">
     <inertial>
@@ -55,7 +56,7 @@
     <parent link="link_1" />
     <child link="link_2" />
     <axis xyz="1 0 0" />
-    <limit lower="0" upper="0" effort="0" velocity="0" />
+    <limit lower="0" upper="0" effort="30" velocity="0" />
   </joint>
   <transmission name="joint_1_trans">
     <type>transmission_interface/SimpleTransmission</type>
@@ -63,7 +64,6 @@
       <hardwareInterface>EffortJointInterface</hardwareInterface>
     </joint>
     <actuator name="joint_1_actuator">
-      <hardwareInterface>EffortJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
@@ -95,7 +95,7 @@
     <parent link="link_2" />
     <child link="link_3" />
     <axis xyz="-1 0 0" />
-    <limit lower="0" upper="0" effort="0" velocity="0" />
+    <limit lower="0" upper="0" effort="30" velocity="0" />
   </joint>
   <transmission name="joint_2_trans">
     <type>transmission_interface/SimpleTransmission</type>
@@ -103,7 +103,6 @@
       <hardwareInterface>EffortJointInterface</hardwareInterface>
     </joint>
     <actuator name="joint_2_actuator">
-      <hardwareInterface>EffortJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
@@ -135,7 +134,7 @@
     <parent link="link_3" />
     <child link="link_4" />
     <axis xyz="-1 0 0" />
-    <limit lower="0" upper="0" effort="0" velocity="0" />
+    <limit lower="0" upper="0" effort="30" velocity="0" />
   </joint>
 
   <transmission name="joint_3_trans">
@@ -144,7 +143,6 @@
       <hardwareInterface>EffortJointInterface</hardwareInterface>
     </joint>
     <actuator name="joint_3_actuator">
-      <hardwareInterface>EffortJointInterface</hardwareInterface>
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
@@ -155,9 +153,6 @@
         Gazebo/Black
       </material>
     </visual>
-
-    <implicitSpringDamper>1</implicitSpringDamper>
-    <provideFeedback>true</provideFeedback>
   </gazebo>
 
   <gazebo reference="link_2">
@@ -166,9 +161,6 @@
         Gazebo/Orange
       </material>
     </visual>
-
-    <implicitSpringDamper>1</implicitSpringDamper>
-    <provideFeedback>true</provideFeedback>
   </gazebo>
 
   <gazebo reference="link_3">
@@ -177,9 +169,6 @@
         Gazebo/Orange
       </material>
     </visual>
-
-    <implicitSpringDamper>1</implicitSpringDamper>
-    <provideFeedback>true</provideFeedback>
   </gazebo>
 
   <gazebo reference="link_4">
@@ -188,7 +177,19 @@
         Gazebo/Black
       </material>
     </visual>
+  </gazebo>
 
+  <gazebo reference="joint_1"
+    <implicitSpringDamper>1</implicitSpringDamper>
+    <provideFeedback>true</provideFeedback>
+  </gazebo>
+
+  <gazebo reference="joint_2"
+    <implicitSpringDamper>1</implicitSpringDamper>
+    <provideFeedback>true</provideFeedback>
+  </gazebo>
+
+  <gazebo reference="joint_3"
     <implicitSpringDamper>1</implicitSpringDamper>
     <provideFeedback>true</provideFeedback>
   </gazebo>
@@ -219,6 +220,8 @@
 
   <gazebo>
     <plugin filename="libgazebo_ros_control.so" name="gazebo_ros_control">
+      <robotNamespace>/inchworm</robotNamespace>
+      <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
     </plugin>
   </gazebo>
 
