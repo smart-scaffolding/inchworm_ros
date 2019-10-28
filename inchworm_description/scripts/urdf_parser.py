@@ -19,130 +19,118 @@ import sys
 from urdf_parser_py.urdf import URDF
 from urdf_parser_py import urdf
 
-
 def get_revolute_joints(robot):
-    """ Get robot revolute joints """
-    return [joint for joint in robot.joints if joint.type == "revolute"]
-
+  """ Get robot revolute joints """
+  return [joint for joint in robot.joints if joint.type == "revolute"]
 
 def get_continuous_joints(robot):
-    """ Get robot revolute joints """
-    return [joint for joint in robot.joints if joint.type == "continuous"]
-
+  """ Get robot revolute joints """
+  return [joint for joint in robot.joints if joint.type == "continuous"]
 
 def get_joints(robot):
-    """ Get robot joints """
-    joints = get_revolute_joints(robot)
-    # print("Joints:\n{}".format([joint.name for joint in joints]))
-    return joints
-
+  """ Get robot joints """
+  joints = get_revolute_joints(robot)
+  # print("Joints:\n{}".format([joint.name for joint in joints]))
+  return joints
 
 def get_all_joint_names(robot):
-    """ Get all joints of the robot """
-    joints = {
-        typ: [joint.name for joint in robot.joints if joint.type == typ]
-        for typ in urdf.Joint.TYPES
-    }
-    return joints
-
+  """ Get all joints of the robot """
+  joints = {
+    typ: [joint.name for joint in robot.joints if joint.type == typ
+          ] for typ in urdf.Joint.TYPES
+  }
+  return joints
 
 def get_all_revolute_joints_names(robot):
-    """ Get all joints of the robot """
-    typ = "revolute"
-    joints = {
-        typ: [joint.name for joint in robot.joints if joint.type == "revolute"]
-    }
-    return joints
-
+  """ Get all joints of the robot """
+  typ = "revolute"
+  joints = {
+    typ: [joint.name for joint in robot.joints if joint.type == "revolute"]
+  }
+  return joints
 
 def get_all_joints(robot):
 
-    joints = {
-        typ: [joint.name for joint in robot.joints if joint.type == typ]
-        for typ in urdf.Joint.TYPES
-    }
+  joints = {
+    typ: [joint.name for joint in robot.joints if joint.type == typ
+          ] for typ in urdf.Joint.TYPES
+  }
 
-    return joints
-
+  return joints
 
 def get_all_joint_types(robot):
-    """ Get all joint types """
-    types = {
-        typ: [joint.type for joint in robot.joints if joint.type == typ]
-        for typ in urdf.Joint.TYPES
-    }
-    return types
-
+  """ Get all joint types """
+  types = {
+    typ: [joint.type for joint in robot.joints if joint.type == typ
+          ] for typ in urdf.Joint.TYPES
+  }
+  return types
 
 def ros_param_properties(robot, robot_namespace):
-    """ Save robot properties """
-    properties = robot_properties(robot)
-    rospy.set_param(robot_namespace + "properties", properties)
-    return
-
+  """ Save robot properties """
+  properties = robot_properties(robot)
+  rospy.set_param(robot_namespace + "properties", properties)
+  return
 
 def robot_properties(robot):
-    """ Robot properties """
-    return {"jointNames": get_all_joint_names(robot)}
-
+  """ Robot properties """
+  return {"jointNames": get_all_joint_names(robot)}
 
 def parse_model(model_path):
 
-    # 1. Parse a string containing the robot description in urdf.
-    # Pro: no need to have a roscore running.
-    # Cons: n/a
-    # Note: it is rare to receive the robot model as a string.
-    desc = open(model_path, 'r')
+  # 1. Parse a string containing the robot description in urdf.
+  # Pro: no need to have a roscore running.
+  # Cons: n/a
+  # Note: it is rare to receive the robot model as a string.
+  desc = open(model_path, 'r')
 
-    robot = URDF.from_xml_string(desc.read())
+  robot = URDF.from_xml_string(desc.read())
 
-    # - OR -
+  # - OR -
 
-    # 2. Load the module from a file.
-    # Pro: no need to have a roscore running.
-    # Cons: using hardcoded file location is not portable.
-    #robot = urdf.from_xml_file()
+  # 2. Load the module from a file.
+  # Pro: no need to have a roscore running.
+  # Cons: using hardcoded file location is not portable.
+  #robot = urdf.from_xml_file()
 
-    # - OR -
+  # - OR -
 
-    # 3. Load the module from the parameter server.
-    # Pro: automatic, no arguments are needed, consistent
-    #      with other ROS nodes.
-    # Cons: need roscore to be running and the parameter to
-    #      to be set beforehand (through a roslaunch file for
-    #      instance).
-    #robot = urdf.from_parameter_server()
+  # 3. Load the module from the parameter server.
+  # Pro: automatic, no arguments are needed, consistent
+  #      with other ROS nodes.
+  # Cons: need roscore to be running and the parameter to
+  #      to be set beforehand (through a roslaunch file for
+  #      instance).
+  #robot = urdf.from_parameter_server()
 
-    # Print the robot
-    # for element in robot.links:
-    #     print(element)
+  # Print the robot
+  # for element in robot.links:
+  #     print(element)
 
-    joint_types = get_all_joint_types(robot)
+  joint_types = get_all_joint_types(robot)
 
-    print(get_all_revolute_joints_names(robot))
+  print(get_all_revolute_joints_names(robot))
 
-    return robot
-
+  return robot
 
 def main():
 
-    rospack = rospkg.RosPack()
-    rospack.list()
+  rospack = rospkg.RosPack()
+  rospack.list()
 
-    root_path = rospack.get_path('inchworm_description')
-    model_path = root_path + "/urdf/inchworm_description.urdf"
+  root_path = rospack.get_path('inchworm_description')
+  model_path = root_path + "/urdf/inchworm_description.urdf"
 
-    if len(sys.argv) > 1:
-        if sys.argv[1] is not None:
-            root_path = sys.argv[1]
+  if len(sys.argv) > 1:
+    if sys.argv[1] is not None:
+      root_path = sys.argv[1]
 
-        if sys.argv[2] is not None:
-            model_path = sys.argv[2]
+    if sys.argv[2] is not None:
+      model_path = sys.argv[2]
 
-    robot = parse_model(model_path)
+  robot = parse_model(model_path)
 
-    print(robot)
-
+  print(robot)
 
 if __name__ == "__main__":
-    main()
+  main()
