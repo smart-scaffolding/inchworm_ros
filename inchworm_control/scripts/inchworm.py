@@ -42,16 +42,31 @@ class Inchworm(object):
     self.subToJointStates()
 
     # Setup effort publishers
-    self._joint_effort_pubs = [
-      rospy.Publisher(
-        (
-          namespace + "control/config/joint_effort_controller_joint_{}/command"
-          .format(joint_i)
-        ),
-        Float64,
-        queue_size=10
-      ) for joint_i in range(self._n_joints)
-    ]
+    self._effort_flag = bool(rospy.get_param(namespace + "is_effort_enabled"))
+    if self._effort_flag:
+      self._joint_effort_pubs = [
+        rospy.Publisher(
+          (
+            namespace +
+            "control/config/joint_effort_controller_joint_{}/command"
+            .format(joint_i)
+          ),
+          Float64,
+          queue_size=10
+        ) for joint_i in range(self._n_joints)
+      ]
+    else:
+      self._joint_effort_pubs = [
+        rospy.Publisher(
+          (
+            namespace +
+            "control/config/joint_position_controller_joint_{}/command"
+            .format(joint_i)
+          ),
+          Float64,
+          queue_size=10
+        ) for joint_i in range(self._n_joints)
+      ]
 
     # Publish initial efforts to reach home position?
     # Publishing random values for now
@@ -82,18 +97,21 @@ class Inchworm(object):
 
     return
 
-  def publishJointEfforts(self, cmd=None):
+  def publishJointEfforts(self, cmd=None, effort=True):
     """ Publish cmd[arr] values to joints """
 
+    # if effort:
     if cmd is None:
       cmd = [0 for i in range(self._n_joints)]
 
       for i in range(self._n_joints):
         cmd[i] = np.sin(rospy.get_time() * np.pi / 2) * 1
+        print str(i) + " : " + str(cmd[i])
         self._joint_effort_pubs[i].publish(cmd[i])
 
     else:
       for i in range(self._n_joints):
+        print str(i) + " : " + str(cmd[i])
         self._joint_effort_pubs[i].publish(cmd[i])
 
     return

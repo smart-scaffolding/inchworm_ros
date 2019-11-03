@@ -255,6 +255,39 @@ def generate_robot(namespace):
 
   return robot
 
+def add_transmission_plugins(robot, effort=True):
+
+  joints = get_all_joints(robot)
+
+  mov_joints = [
+    joint for typ,
+    joint in joints.items() if typ in ['revolute',
+                                       'continuous',
+                                       'prismatic']
+  ]
+
+  m_joints = []
+  for ls in mov_joints:
+    if ls is not None:
+      for item in ls:
+        m_joints.append(item)
+    else:
+      continue
+
+  for joint in m_joints:
+    # Transmission
+    t = urdf.Transmission(joint + "_trans")
+    t.type = "transmission_interface/SimpleTransmission"
+    transjoint = urdf.TransmissionJoint(name=joint)
+    transjoint.add_aggregate("hardwareInterface", "EffortJointInterface")
+    t.add_aggregate("joint", transjoint)
+    actuator = urdf.Actuator(joint + "_motor")
+    actuator.mechanicalReduction = 1
+    t.add_aggregate("actuator", actuator)
+    robot.add_aggregate("transmission", t)
+
+  return robot
+
 def add_gazebo_plugins(
   robot,
   namespace="/",

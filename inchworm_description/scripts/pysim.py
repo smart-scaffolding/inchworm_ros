@@ -20,6 +20,7 @@ import sys
 from spawn import spawn_node
 from generate_urdf import get_continous_joints, generate_robot, generate_urdf
 from generate_urdf import get_all_continuous_joints_names, add_gazebo_plugins
+from generate_urdf import add_transmission_plugins
 
 def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
   """ Setup nodes and params """
@@ -36,6 +37,8 @@ def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
   model_path = root_path + "/urdf/inchworm_description.urdf"
 
   robot = parse_model(model_path)
+
+  robot = add_transmission_plugins(robot)
 
   robot = add_gazebo_plugins(robot, namespace, True, True)
 
@@ -114,11 +117,21 @@ def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
   # # camera node
   # # spawnCameraNode = spawnNodes[1]
 
+  # node_tf = roslaunch.core.Node(
+  #   package="tf",
+  #   node_type="static_transform_publisher",
+  #   name="base_link_to_world_tf_pub",
+  #   args="0 0 0 0 0 0 world base_link 1000",
+  #   namespace=namespace,
+  #   machine_name=island
+  # )
+
   nodes = [
     spawnRobotNode,
     # spawnCameraNode,
-    node_state,
-    node_rqt_plot
+    node_state
+    # node_tf
+    # node_rqt_plot
   ]
   return nodes
 
@@ -133,6 +146,10 @@ def setupIslands(islandNamespace, island_id, robots):
   gazebo_env_args = "http://localhost:1134{}".format(4 + island_id)
   ros_gazebo_env_args = "/{}".format(island)
 
+  gz_URI = 11344 + island_id
+
+  rospy.set_param(ros_gazebo_env_args + "/URI", gz_URI)
+
   node_gzserver = roslaunch.core.Node(
     package="gazebo_ros",
     node_type="gzserver",
@@ -140,6 +157,7 @@ def setupIslands(islandNamespace, island_id, robots):
     respawn=False,
     namespace=namespace,
     machine_name=island,
+    # args="-e bullet",  # switch to bullet if shared_msgs can be used
     env_args=[
       ("GAZEBO_MASTER_URI",
        gazebo_env_args),
@@ -173,7 +191,7 @@ def setupIslands(islandNamespace, island_id, robots):
   )
   nodes.append(node_gzserver)
   nodes.append(node_gzclient)
-  nodes.append(node_gzstate)
+  # nodes.append(node_gzstate)
 
   model_name = "inchworm"
 

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="inchworm" 
   xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <link name="base_link" />
+  <link name="world" />
+  <!-- <link name="base_link" /> -->
   <link name="link_1">
     <inertial>
       <origin xyz="-0.0016917 -0.0012554 0.063867" rpy="0 0 0" />
@@ -24,11 +25,16 @@
       </geometry>
     </collision>
   </link>
-  <joint name="fake_base_joint" type="fixed">
+  <joint name="world_to_link_1" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="world" />
+    <child link="link_1" />
+  </joint>
+  <!-- <joint name="fake_base_joint" type="fixed">
     <origin xyz="0 0 0" rpy="0 0 0" />
     <parent link="base_link" />
     <child link="link_1" />
-  </joint>
+  </joint> -->
   <link name="link_2">
     <inertial>
       <origin xyz="0.0033121 -0.0010932 -0.10202" rpy="0 0 0" />
@@ -58,7 +64,7 @@
     <axis xyz="1 0 0" />
     <limit lower="0" upper="0" effort="30" velocity="0" />
   </joint>
-  <transmission name="joint_1_trans">
+  <!-- <transmission name="joint_1_trans">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="joint_1">
       <hardwareInterface>EffortJointInterface</hardwareInterface>
@@ -66,7 +72,7 @@
     <actuator name="joint_1_actuator">
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
-  </transmission>
+  </transmission> -->
 
   <link name="link_3">
     <inertial>
@@ -97,7 +103,7 @@
     <axis xyz="-1 0 0" />
     <limit lower="0" upper="0" effort="30" velocity="0" />
   </joint>
-  <transmission name="joint_2_trans">
+  <!-- <transmission name="joint_2_trans">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="joint_2">
       <hardwareInterface>EffortJointInterface</hardwareInterface>
@@ -105,7 +111,7 @@
     <actuator name="joint_2_actuator">
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
-  </transmission>
+  </transmission> -->
 
   <link name="link_4">
     <inertial>
@@ -137,7 +143,7 @@
     <limit lower="0" upper="0" effort="30" velocity="0" />
   </joint>
 
-  <transmission name="joint_3_trans">
+  <!-- <transmission name="joint_3_trans">
     <type>transmission_interface/SimpleTransmission</type>
     <joint name="joint_3">
       <hardwareInterface>EffortJointInterface</hardwareInterface>
@@ -145,7 +151,7 @@
     <actuator name="joint_3_actuator">
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
-  </transmission>
+  </transmission> -->
 
   <!-- <gazebo reference="link_1">
     <visual>

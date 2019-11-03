@@ -13,6 +13,10 @@ from inchworm import Inchworm
 from std_msgs.msg import Float64  # , String
 from sensor_msgs.msg import JointState
 
+import pybullet as p
+import time
+import pybullet_data
+
 import numpy as np
 
 class TorqueControl(Inchworm):
@@ -23,22 +27,68 @@ class TorqueControl(Inchworm):
 
     super(TorqueControl, self).__init__(namespace=namespace, timestep=timestep)
 
+    if namespace != '/':
+      lower_index = namespace.find("/island")
+      upper_index = namespace.find("/inchworm")
+      self._island_namespace = namespace[lower_index:upper_index]
+      self._gzserver_namespace = self._island_namespace + "/gzserver/"
+
+    # self._gzserver_URI = int(rospy.get_param(self._gzserver_namespace + "URI"))
+
+    # Try and establish TCP Connection with gazebo bullet physics instance
+    # Currently the Gazebo/physicsmsgs doesn't sync with bullet physics' TCP
+    # calls
+    # physics_client = p.connect(p.TCP, "localhost", self._gzserver_URI)
+    self._physics_client = p.connect(p.DIRECT)
+
+    gravity_str = [
+      self._gzserver_namespace + "gravity_x",
+      self._gzserver_namespace + "gravity_y",
+      self._gzserver_namespace + "gravity_z"
+    ]
+
+    p.setGravity(
+      rospy.get_param(gravity_str[0]),
+      rospy.get_param(gravity_str[1]),
+      rospy.get_param(gravity_str[2])
+    )
+
+    # p.loadURDF(rospy.get_param(namespace + "robot_description"))
+
     rospy.Timer(rospy.Duration(self._timestep), self.control)
     return
 
   def control(self, event=None, verbose=False):
     if verbose:
       print(event)
-    self.bodyControl()
+    self.torqueControl()
     return
 
-  def bodyControl(self):
+  def torqueControl(self):
     """ Body control """
-    t = rospy.get_time()
+    # t = rospy.get_time()
 
     # print "Time: {}".format(t)
+    # Solve the dynamics here
 
-    self.publishJointEfforts()
+    cmd = [0.0, 0.0, 0.0]
+    q_desired = [np.pi, 0, 0]  # rads
+    dq_desired = [0.0, 0.0, 0.0]
+
+    Kp = 2
+    Kv = 0.001
+
+    cmd[0] = Kp * (q_desired[0] - self._joint_states[0][0]) + Kv * (
+      dq_desired[0] - self._joint_states[0][1]
+    )
+    cmd[1] = Kp * (q_desired[1] - self._joint_states[1][0]) + Kv * (
+      dq_desired[1] - self._joint_states[1][1]
+    )
+    cmd[2] = Kp * (q_desired[2] - self._joint_states[2][0]) + Kv * (
+      dq_desired[2] - self._joint_states[2][1]
+    )
+
+    self.publishJointEfforts(effort=True, cmd=cmd)
 
     return
 
