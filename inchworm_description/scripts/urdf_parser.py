@@ -19,6 +19,23 @@ import sys
 from urdf_parser_py.urdf import URDF
 from urdf_parser_py import urdf
 
+def scale_robot_inertia(robot, scale=1):
+  """ Scale the inertia's of the robots with the scale value """
+  for link in robot.links:
+    link.inertial.inertia.ixx = scale * link.inertial.inertia.ixx
+    link.inertial.inertia.ixy = scale * link.inertial.inertia.ixy
+    link.inertial.inertia.ixz = scale * link.inertial.inertia.ixz
+    link.inertial.inertia.iyy = scale * link.inertial.inertia.iyy
+    link.inertial.inertia.iyz = scale * link.inertial.inertia.iyz
+    link.inertial.inertia.izz = scale * link.inertial.inertia.izz
+    link.inertial.mass = scale * link.inertial.mass
+
+  for joint in robot.joints:
+    if joint.type == 'revolute':
+      joint.limit.effort = scale * joint.limit.effort
+
+  return robot
+
 def get_revolute_joints(robot):
   """ Get robot revolute joints """
   return [joint for joint in robot.joints if joint.type == "revolute"]
@@ -57,6 +74,19 @@ def get_all_joints(robot):
   }
 
   return joints
+
+def get_all_joint_objects(robot):
+
+  return robot.joints
+
+def get_p_and_c_links(robot, joint):
+  """ Get parent and child link from joint in robot """
+  p_and_c_link = []
+  for jt in robot.joints:
+    if jt.name == joint:
+      p_and_c_link.append(jt.parent)
+      p_and_c_link.append(jt.child)
+      return p_and_c_link
 
 def get_all_joint_types(robot):
   """ Get all joint types """

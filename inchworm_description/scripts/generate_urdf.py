@@ -12,7 +12,7 @@ from urdf_parser import get_all_joints
 
 import numpy as np
 
-name = "LIP"
+name = "orthosis"
 n_links = 2
 
 n_len = 2.0 / n_links
@@ -50,39 +50,51 @@ def white():
   )
   return col_white
 
-def frame_inertial():
+def frame_inertial(scale=1):
   """ Return default inertial """
+  _mass = 0.1 * scale
+  _x = (0.033 / 2)
+  _y = (0.022 / 2)
+  _z = (0.103 / 2)
+  ixx = _mass * _x * _x
+  iyy = _mass * _y * _y
+  izz = _mass * _z * _z
   return urdf.Inertial(
-    mass=1,
-    inertia=urdf.Inertia(ixx=1,
-                         iyy=1,
-                         izz=1),
-    origin=urdf.Pose(xyz=[0,
-                          0,
-                          l_f_len / 2],
+    mass=_mass,
+    inertia=urdf.Inertia(ixx=ixx,
+                         iyy=iyy,
+                         izz=izz),
+    origin=urdf.Pose(xyz=[_x,
+                          _y,
+                          _z],
                      rpy=[0,
                           0,
                           0])
   )
 
-def frame_collision(geometry=None, origin=None):
+def frame_collision(scale=1):
   """ Return default collision """
-  if geometry is None:
-    geometry = urdf.Cylinder(radius=0.05, length=2.)
-  if origin is None:
-    origin = urdf.Pose(xyz=[0, 0, l_f_len / 2], rpy=[0, 0, 0])
+  # if geometry is None:
+  _x = (0.033/2) * scale
+  _y = (0.022/2) * scale
+  _z = (0.103/2) * scale
+  geometry = urdf.Cylinder(length=_z, radius=_x)
+  # if origin is None:
+  origin = urdf.Pose(xyz=[0, 0, 0], rpy=[0, 0, 0])
   return urdf.Collision(geometry=geometry, origin=origin)
 
-def frame_visual(geometry=None, origin=None):
-  if geometry is None:
-    geometry = urdf.Cylinder(radius=l_f_rad, length=l_f_len)
-  if origin is None:
-    origin = urdf.Pose(xyz=[0, 0, l_f_len / 2], rpy=[0, 0, 0])
-  return urdf.Visual(
-    geometry=geometry,
-    origin=origin,
-    material=urdf.Material(name="Gazebo/Orange")
-  )
+def frame_visual(scale=10):
+  """ Return default collision """
+  # if geometry is None:
+  _x = (0.033/2) * scale
+  _y = (0.022/2) * scale
+  _z = (0.103/2) * scale
+  # geometry = urdf.Box(size=[_x, _y,
+  #                           _z])
+  geometry = urdf.Cylinder(length=_z, radius=_x)
+  # if origin is None:
+  origin = urdf.Pose(xyz=[0, 0, 0], rpy=[0, 0, 0])
+  return urdf.Visual(geometry=geometry, origin=origin, material=orange())
 
 def default_inertial():
   """ Return default inertial """
@@ -288,14 +300,85 @@ def add_transmission_plugins(robot, effort=True):
 
   return robot
 
+def add_rgbd_camera(robot, scale=1, parent_link_name="base_plate"):
+  _x = (0.033 / 2)
+  _y = (0.022 / 2)
+  _z = (0.103 / 2)
+
+  l_frame = urdf.Link(
+    name=parent_link_name + "_camera",
+    visual=frame_visual(),
+    collision=frame_collision(),
+    inertial=frame_inertial()
+  )
+  l_frame.visual = frame_visual()
+  l_frame.collision = frame_collision()
+  robot.add_link(l_frame)
+
+  for link in robot.links:
+    if link.name == parent_link_name:
+      origin_xyz = link.inertial.origin.xyz
+      origin_xyz[2] += _z
+      origin_rpy = link.inertial.origin.rpy
+
+  j_world = urdf.Joint(
+    name=l_frame.name + "_joint",
+    parent=parent_link_name,
+    child=l_frame.name,
+    joint_type="fixed",
+    origin=urdf.Pose(origin_xyz,
+                     origin_rpy)
+  )
+  robot.add_joint(j_world)
+  return (robot, l_frame.name)
+
 def add_gazebo_plugins(
   robot,
   namespace="/",
   use_ft_sensors=False,
-  use_p3d_sensors=False
+  use_p3d_sensors=False,
+  fix_base_joint={
+    "child": "link_1",
+    "origin": {
+      "xyz": [0,
+              0,
+              0],
+      "rpy": [0,
+              0,
+              0]
+    }
+  },
+  use_rgbd_camera=None
 ):
 
   joints = get_all_joints(robot)
+
+  if fix_base_joint is not None:
+    l_world = urdf.Link("world")
+    robot.add_link(l_world)
+    origin = fix_base_joint.get("origin", 0)
+    if origin is not 0:
+      origin_xyz = origin.get("xyz")
+      origin_rpy = origin.get("rpy")
+
+    else:
+      origin_xyz = [0, 0, 0]
+      origin_rpy = [0, 0, 0]
+
+    child_frame = fix_base_joint.get("child", 0)
+
+    if child_frame is 0:
+      child_frame = "base_link"
+
+    j_world = urdf.Joint(
+      name="fixed",
+      parent="world",
+      child=child_frame,
+      joint_type="fixed",
+      origin=urdf.Pose(origin_xyz,
+                       origin_rpy)
+    )
+    robot.add_joint(j_world)
 
   for link_i, link in enumerate(get_all_links(robot)):
     a = etree.Element("gazebo", {"reference": link.name})
@@ -332,6 +415,154 @@ def add_gazebo_plugins(
       d = etree.SubElement(b, "topicName")
       d.text = namespace + "ftSensors/" + joint.name
       robot.add_aggregate("gazebo", a)
+
+  if use_rgbd_camera is not None:
+    link_name = use_rgbd_camera.get("link")
+    camera_name = link_name + "_tof"
+
+    camera_frame_name = camera_name + "_optical_frame"
+    camera_link = urdf.Link(camera_frame_name)
+    robot.add_link(camera_link)
+
+    j_camera_frame = urdf.Joint(
+      name=camera_frame_name + "_joint",
+      parent=link_name,
+      child=camera_frame_name,
+      joint_type="fixed",
+      origin=urdf.Pose(xyz=[0,
+                            0,
+                            0],
+                       rpy=[0,
+                            0,
+                            -np.pi / 2])
+    )  #-np.pi / 2
+    robot.add_joint(j_camera_frame)
+
+    # TOF Sensor
+    a = etree.Element(
+      "gazebo",
+      {"reference": camera_frame_name}
+    )  # Try and automate this
+    b = etree.SubElement(a, "sensor", {"name": camera_name, "type": "ray"})
+    b1 = etree.SubElement(b, "visualize")
+    b1.text = "true"
+    c1 = etree.SubElement(b, "always_on")
+    c1.text = "true"
+    c = etree.SubElement(b, "update_rate")
+    c.text = "20.0"
+    d = etree.SubElement(b, "ray")
+    e = etree.SubElement(d, "scan")
+    g = etree.SubElement(e, "horizontal")
+    h1 = etree.SubElement(g, "samples")
+    h1.text = "16"
+    h2 = etree.SubElement(g, "resolution")
+    h2.text = "1"
+    h3 = etree.SubElement(g, "min_angle")
+    h3.text = str(-1.20428 / 2)
+    h4 = etree.SubElement(g, "max_angle")
+    h4.text = str(1.20428 / 2)
+    i = g = etree.SubElement(e, "vertical")
+    v1 = etree.SubElement(i, "samples")
+    v1.text = "16"
+    v2 = etree.SubElement(i, "resolution")
+    v2.text = "1"
+    v3 = etree.SubElement(i, "min_angle")
+    v3.text = str(-0.890118 / 2)
+    v4 = etree.SubElement(i, "max_angle")
+    v4.text = str(0.890118 / 2)
+    j = etree.SubElement(d, "range")
+    k = etree.SubElement(j, "min")
+    k.text = "0.2"
+    l = etree.SubElement(j, "max")
+    l.text = "5.0"
+    n = etree.SubElement(
+      b,
+      "plugin",
+      {
+        "name": camera_name + "_plugin",
+        "filename": "libsim_tof.so"
+      }
+    )
+    o = etree.SubElement(n, "alwaysOn")
+    o.text = "true"
+    p = etree.SubElement(n, "updateRate")
+    p.text = "20.0"
+    q = etree.SubElement(n, "topicName")
+    q.text = namespace + camera_name + "/depth/points"
+    r = etree.SubElement(n, "frameName")
+    r.text = camera_frame_name
+    s = etree.SubElement(n, "zone")
+    t1 = etree.SubElement(s, "id")
+    t1.text = "0"
+    t2 = etree.SubElement(s, "startX")
+    t2.text = "0"
+    t3 = etree.SubElement(s, "startY")
+    t3.text = "0"
+    t4 = etree.SubElement(s, "endX")
+    t4.text = "16"
+    t5 = etree.SubElement(s, "endY")
+    t5.text = "16"
+
+    # Camera
+    u = etree.SubElement(
+      a,
+      "sensor",
+      {
+        "name": camera_frame_name,
+        "type": "camera"
+      }
+    )
+    v = etree.SubElement(u, "update_rate")
+    v.text = "20.0"
+    w = etree.SubElement(u, "camera")  #, {"name": link_name + "_image"})
+    x = etree.SubElement(w, "horizontal_fov")
+    x.text = str(1.20428)
+    y = etree.SubElement(w, "image")
+    y1 = etree.SubElement(y, "width")
+    y1.text = "640"
+    y2 = etree.SubElement(y, "height")
+    y2.text = "480"
+    y3 = etree.SubElement(y, "format")
+    y3.text = "R8G8B8"
+    z = etree.SubElement(w, "clip")
+    z1 = etree.SubElement(z, "near")
+    z1.text = "0.2"
+    z2 = etree.SubElement(z, "far")
+    z2.text = "5"
+    pg = etree.SubElement(
+      u,
+      "plugin",
+      {
+        "name": link_name + "_controller",
+        "filename": "libgazebo_ros_camera.so"
+      }
+    )
+    pg1 = etree.SubElement(pg, "alwaysOn")
+    pg1.text = "true"
+    pg2 = etree.SubElement(pg, "updateRate")
+    pg2.text = "0.0"
+    pg3 = etree.SubElement(pg, "cameraName")
+    pg3.text = link_name
+    pg4 = etree.SubElement(pg, "imageTopicName")
+    pg4.text = namespace + link_name + "/image_raw"
+    pg5 = etree.SubElement(pg, "cameraInfoTopicName")
+    pg5.text = namespace + link_name + "/camera_info"
+    pg6 = etree.SubElement(pg, "frameName")
+    pg6.text = camera_frame_name
+    pg7 = etree.SubElement(pg, "distortionK1")
+    pg7.text = "0.00000001"
+    pg8 = etree.SubElement(pg, "distortionK2")
+    pg8.text = "0.00000001"
+    pg9 = etree.SubElement(pg, "distortionK3")
+    pg9.text = "0.00000001"
+    pg10 = etree.SubElement(pg, "distortionT1")
+    pg10.text = "0.00000001"
+    pg11 = etree.SubElement(pg, "distortionT2")
+    pg11.text = "0.00000001"
+    pg12 = etree.SubElement(pg, "hackBaseline")
+    pg12.text = "0"
+
+    robot.add_aggregate("gazebo", a)
 
   # Gazebo plugin
   a = etree.Element("gazebo")

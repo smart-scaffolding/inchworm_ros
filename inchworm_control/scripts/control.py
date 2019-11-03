@@ -13,9 +13,9 @@ from inchworm import Inchworm
 from std_msgs.msg import Float64  # , String
 from sensor_msgs.msg import JointState
 
-import pybullet as p
+import rbdl
+
 import time
-import pybullet_data
 
 import numpy as np
 
@@ -33,27 +33,8 @@ class TorqueControl(Inchworm):
       self._island_namespace = namespace[lower_index:upper_index]
       self._gzserver_namespace = self._island_namespace + "/gzserver/"
 
-    # self._gzserver_URI = int(rospy.get_param(self._gzserver_namespace + "URI"))
-
-    # Try and establish TCP Connection with gazebo bullet physics instance
-    # Currently the Gazebo/physicsmsgs doesn't sync with bullet physics' TCP
-    # calls
-    # physics_client = p.connect(p.TCP, "localhost", self._gzserver_URI)
-    self._physics_client = p.connect(p.DIRECT)
-
-    gravity_str = [
-      self._gzserver_namespace + "gravity_x",
-      self._gzserver_namespace + "gravity_y",
-      self._gzserver_namespace + "gravity_z"
-    ]
-
-    p.setGravity(
-      rospy.get_param(gravity_str[0]),
-      rospy.get_param(gravity_str[1]),
-      rospy.get_param(gravity_str[2])
-    )
-
-    # p.loadURDF(rospy.get_param(namespace + "robot_description"))
+    # self._gzserver_URI = int(
+    #     rospy.get_param(self._gzserver_namespace + "URI"))
 
     rospy.Timer(rospy.Duration(self._timestep), self.control)
     return
@@ -66,29 +47,53 @@ class TorqueControl(Inchworm):
 
   def torqueControl(self):
     """ Body control """
-    # t = rospy.get_time()
 
-    # print "Time: {}".format(t)
-    # Solve the dynamics here
+    Kp = 0.1 * self._scale * 100
+    Kv = 0.001 * self._scale * 100
 
-    cmd = [0.0, 0.0, 0.0]
-    q_desired = [np.pi, 0, 0]  # rads
-    dq_desired = [0.0, 0.0, 0.0]
+    is_set_point_ctrl = True
+    extend = True
 
-    Kp = 2
-    Kv = 0.001
+    if extend:
+      self._q_des = {
+        joint: 0.15 for joint in self
+        ._m_joints  # self._joint_limits[joint][1] for joint in self._m_joints
+      }
+    else:
+      self._q_des = {
+        joint: self._joint_limits[joint][0] for joint in self._m_joints
+      }
 
-    cmd[0] = Kp * (q_desired[0] - self._joint_states[0][0]) + Kv * (
-      dq_desired[0] - self._joint_states[0][1]
+    # Calculate Gravity
+    for k, v in self._states_map.items():
+      self._q[v] = self._joint_states[k][0]
+      # self._qdot[v] = self._joint_states[k][1]
+      self._qdot[v] = 0.0
+      self._qddot[v] = 0.0
+    rbdl.InverseDynamics(
+      self._model,
+      self._q,
+      self._qdot,
+      self._qddot,
+      self._tau
     )
-    cmd[1] = Kp * (q_desired[1] - self._joint_states[1][0]) + Kv * (
-      dq_desired[1] - self._joint_states[1][1]
-    )
-    cmd[2] = Kp * (q_desired[2] - self._joint_states[2][0]) + Kv * (
-      dq_desired[2] - self._joint_states[2][1]
-    )
+    self._G = self._tau
 
-    self.publishJointEfforts(effort=True, cmd=cmd)
+    tau_compensated = np.zeros(self._model.qdot_size)
+    q_comp = np.zeros(self._model.q_size)
+    qdot_comp = np.zeros(self._model.q_size)
+
+    # Calculate error term and add to torque
+    for k, v in self._states_map.items():
+      q_comp[v] = Kp * (self._q_des[k] - self._joint_states[k][0])
+      qdot_comp[v] = -Kv * self._joint_states[k][1]
+      tau_compensated[v] = self._G[v]
+      if is_set_point_ctrl:
+        tau_compensated[v] += q_comp[v] + qdot_comp[v]
+
+    # print("Tau = " + str(tau_compensated.transpose()))
+
+    self.publishJointEfforts(effort=True, cmd=tau_compensated)
 
     return
 

@@ -20,7 +20,8 @@ import sys
 from spawn import spawn_node
 from generate_urdf import get_continous_joints, generate_robot, generate_urdf
 from generate_urdf import get_all_continuous_joints_names, add_gazebo_plugins
-from generate_urdf import add_transmission_plugins
+from generate_urdf import add_transmission_plugins, add_rgbd_camera
+from urdf_parser import get_all_joints, get_p_and_c_links, scale_robot_inertia
 
 def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
   """ Setup nodes and params """
@@ -34,13 +35,51 @@ def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
   rospack.list()
 
   root_path = rospack.get_path('inchworm_description')
+  unscaled_model_path = root_path + "/urdf/inchworm_description_unscaled.urdf"
   model_path = root_path + "/urdf/inchworm_description.urdf"
 
-  robot = parse_model(model_path)
+  robot = parse_model(unscaled_model_path)
+
+  scale = 1
+  # tof_cam_link = "base_plate"
+  # (robot, camera_link_name) = add_rgbd_camera(robot=robot,
+  #                                             scale=scale,
+  #                                             parent_link_name=tof_cam_link)
+  # camera_link_name = tof_cam_link + "_camera"
+  robot = scale_robot_inertia(robot, scale)
+
+  rospy.set_param(namespace + "scale", scale)
+
+  # print robot.to_xml_string()
+
+  if os.path.isfile(model_path):
+    os.remove(model_path)
+
+  with open(model_path, "w+") as f:
+    f.write(robot.to_xml_string())
+    f.close()
+
+  # print(robot.to_xml_string())
 
   robot = add_transmission_plugins(robot)
 
-  robot = add_gazebo_plugins(robot, namespace, True, True)
+  robot = add_gazebo_plugins(
+    robot=robot,
+    namespace=namespace,
+    use_ft_sensors=True,
+    use_p3d_sensors=True,
+    fix_base_joint={
+      "child": "link_1",
+      "origin": {
+        "xyz": [0,
+                0,
+                0],
+        "rpy": [0,
+                0,
+                0]
+      }
+    }
+  )
 
   robot.name = robotNamespace
 
@@ -55,28 +94,61 @@ def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
   #     log_path
   # )
 
-  joints = get_continous_joints(robot)
+  joints = get_all_joints(robot)
 
-  n_joints = 0
-  for joint_i, joint in enumerate(joints):
-    rospy.set_param(namespace + "joint/{}".format((joint_i)), joint.name)
-    n_joints += 1
+  for joint in robot.joints:
+    if joint.limit is not None:
+      rospy.set_param(
+        namespace + "joint/limits/{}".format(joint.name),
+        [
+          joint.limit.lower,
+          joint.limit.upper,
+          joint.limit.velocity,
+          joint.limit.effort
+        ]
+      )
 
-  print(n_joints)
+  rospy.set_param(namespace + "all_joints", joints)
+
+  mov_joints = [
+    joint for typ,
+    joint in joints.items() if typ in ['revolute',
+                                       'continuous',
+                                       'prismatic']
+  ]
+
+  m_joints = []
+  for ls in mov_joints:
+    if ls is not None:
+      for item in ls:
+        m_joints.append(item)
+    else:
+      continue
+
+  for typ, joints in joints.items():
+    if joints is not None:
+      for joint_i, joint in enumerate(joints):
+        rospy.set_param(
+          namespace + "joints/{}/{}".format(typ,
+                                            joint_i),
+          get_p_and_c_links(robot,
+                            joint)
+        )
+
   arg = namespace + "n_joints"
-
-  rospy.set_param(arg, int(n_joints))
+  n_joints = len(m_joints)
+  rospy.set_param(arg, n_joints)
 
   # cam_robot = cam_generate_robot(namespace)
   # rospy.set_param(
   #         namespace + "camera_description",
   #         cam_robot.to_xml_string()
   # )
-  rospy.set_param(
-    namespace + "parameters/control/joints",
-    get_all_continuous_joints_names(robot)
-  )
-  print(get_continous_joints)
+
+  # for joint_i, joint in enumerate(m_joints):
+  #     rospy.set_param(
+  #         )
+  rospy.set_param(namespace + "parameters/control/joints/", m_joints)
 
   node_state = roslaunch.core.Node(
     package="robot_state_publisher",
@@ -151,20 +223,15 @@ def setupIslands(islandNamespace, island_id, robots):
   rospy.set_param(ros_gazebo_env_args + "/URI", gz_URI)
 
   node_gzserver = roslaunch.core.Node(
-    package="gazebo_ros",
-    node_type="gzserver",
-    name="gzserver",
-    respawn=False,
-    namespace=namespace,
-    machine_name=island,
-    # args="-e bullet",  # switch to bullet if shared_msgs can be used
-    env_args=[
-      ("GAZEBO_MASTER_URI",
-       gazebo_env_args),
-      ("ROS_NAMESPACE",
-       ros_gazebo_env_args)
-    ]
-  )
+      package="gazebo_ros",
+      node_type="gzserver",
+      name="gzserver",
+      respawn=False,
+      namespace=namespace,
+      machine_name=island,
+      args="--verbose",  # switch to bullet if shared_msgs can be used
+      env_args=[("GAZEBO_MASTER_URI", gazebo_env_args),
+                ("ROS_NAMESPACE", ros_gazebo_env_args)])
   node_gzclient = roslaunch.core.Node(
     package="gazebo_ros",
     node_type="gzclient",

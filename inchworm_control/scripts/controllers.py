@@ -13,6 +13,7 @@ import time
 
 import rospy
 import roslaunch
+import rospkg
 # import yaml
 
 def generate_controllers(joints, effort=False, P=100, I=0.01, D=10):
@@ -22,7 +23,7 @@ def generate_controllers(joints, effort=False, P=100, I=0.01, D=10):
     "joint_state_controller":
       {
         "type": "joint_state_controller/JointStateController",
-        "publish_rate": 100
+        "publish_rate": 1000
       }
   }
   controllers = []
@@ -35,7 +36,7 @@ def generate_controllers(joints, effort=False, P=100, I=0.01, D=10):
     ]
 
     position_controllers = {
-      "joint_effort_controller_{}".format(joints[i]): controller for i,
+      "joint_effort_controller_joint_{}".format(i): controller for i,
       controller in enumerate(controllers)
     }
   else:
@@ -52,17 +53,23 @@ def generate_controllers(joints, effort=False, P=100, I=0.01, D=10):
     ]
 
     position_controllers = {
-      "joint_position_controller_{}".format(joints[i]): controller for i,
+      "joint_position_controller_joint_{}".format(i): controller for i,
       controller in enumerate(controllers)
     }
 
   d.update(state_controller)
   d.update(position_controllers)
 
-  # controllers_yaml = yaml.dump({"inchworm": d}, default_flow_style=False)
+  rospack = rospkg.RosPack()
+  rospack.list()
+
+  root_path = rospack.get_path('inchworm_description')
+  control_config_path = root_path + "/config/inchworm_control.yaml"
+
+  # controllers_yaml = yaml.dump({"orthosis": d}, default_flow_style=False)
   # controllers_yaml = yaml.dump(d, default_flow_style=False)
-  # stream = file("inchworm_control.yaml", "w+")
-  # yaml.dump({"inchworm": d}, stream, default_flow_style=False)
+  # stream = file(control_config_path, "w+")
+  # yaml.dump({"orthosis": d}, stream, default_flow_style=False)
 
   return d
 
@@ -71,9 +78,9 @@ def run_controllers(namespace, effort=False):
 
   rospy.set_param(namespace + "is_effort_enabled", effort)
 
-  joints = rospy.get_param(namespace + "parameters/control/joints/continuous")
+  joints = rospy.get_param(namespace + "parameters/control/joints/")
   controllers_yaml = generate_controllers(joints, effort=effort)
-  # print(controllers_yaml)
+  print(controllers_yaml)
   rospy.set_param(namespace + "control/config", controllers_yaml)
   add = namespace + "control/config/"
   if effort:
@@ -86,7 +93,11 @@ def run_controllers(namespace, effort=False):
       output="screen",
       args=(
         add + "joint_state_controller " + " ".join(
-          [add + "joint_effort_controller_" + joint for joint in joints]
+          [
+            add + "joint_effort_controller_joint_{}".format(joint_i)
+            for joint_i,
+            joint in enumerate(joints)
+          ]
         )
       )
     )
@@ -100,7 +111,11 @@ def run_controllers(namespace, effort=False):
       output="screen",
       args=(
         add + "joint_state_controller " + " ".join(
-          [add + "joint_position_controller_" + joint for joint in joints]
+          [
+            add + "joint_position_controller_joint_{}".format(joint_i)
+            for joint_i,
+            joint in enumerate(joints)
+          ]
         )
       )
     )
