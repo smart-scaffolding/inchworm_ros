@@ -26,9 +26,14 @@ class Inchworm(object):
     """ Initialize the class with the namespace and timestep as params """
 
     super(Inchworm, self).__init__()
-    self._default_pub_rate = 1000
+    self._default_pub_rate = 10000
     self._namespace = namespace
     self._timestep = timestep
+
+    self._is_set_point_ctrl = bool(
+      rospy.get_param(namespace + "set_point_enable")
+    )
+    self._walk = bool(rospy.get_param(namespace + "default_conf"))
 
     self._n_joints = int(rospy.get_param(namespace + "n_joints"))
 

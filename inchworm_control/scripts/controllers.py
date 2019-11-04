@@ -23,7 +23,7 @@ def generate_controllers(joints, effort=False, P=100, I=0.01, D=10):
     "joint_state_controller":
       {
         "type": "joint_state_controller/JointStateController",
-        "publish_rate": 1000
+        "publish_rate": 10000
       }
   }
   controllers = []

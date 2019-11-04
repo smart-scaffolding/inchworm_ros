@@ -22,7 +22,7 @@ import numpy as np
 class TorqueControl(Inchworm):
   """ Torque controller using M, C, G matrices """
 
-  def __init__(self, namespace='/', timestep=0.01):
+  def __init__(self, namespace='/', timestep=0.0001):
     """ Initialize default timestep size """
 
     super(TorqueControl, self).__init__(namespace=namespace, timestep=timestep)
@@ -48,21 +48,26 @@ class TorqueControl(Inchworm):
   def torqueControl(self):
     """ Body control """
 
-    Kp = 0.1 * self._scale * 100
-    Kv = 0.001 * self._scale * 100
+    Kp = 10 * self._scale
+    Kv = 0.1 * self._scale
 
-    is_set_point_ctrl = True
-    extend = True
-
-    if extend:
-      self._q_des = {
-        joint: 0.15 for joint in self
-        ._m_joints  # self._joint_limits[joint][1] for joint in self._m_joints
-      }
-    else:
-      self._q_des = {
-        joint: self._joint_limits[joint][0] for joint in self._m_joints
-      }
+    if self._is_set_point_ctrl:
+      if self._walk:
+        # joint_vals = [
+        #   -0.8067426250685097,
+        #   1.2152737554267325,
+        #   45.31001551257536
+        # ]
+        joint_vals = [0, 0, 0]
+        self._q_des = {
+          # self._joint_limits[joint][1] for joint in self._m_joints
+          joint: joint_vals[i] for i,
+          joint in enumerate(self._m_joints)
+        }
+      else:
+        self._q_des = {
+          joint: self._joint_limits[joint][0] for joint in self._m_joints
+        }
 
     # Calculate Gravity
     for k, v in self._states_map.items():
@@ -85,13 +90,14 @@ class TorqueControl(Inchworm):
 
     # Calculate error term and add to torque
     for k, v in self._states_map.items():
-      q_comp[v] = Kp * (self._q_des[k] - self._joint_states[k][0])
-      qdot_comp[v] = -Kv * self._joint_states[k][1]
       tau_compensated[v] = self._G[v]
-      if is_set_point_ctrl:
+      if self._is_set_point_ctrl:
+        q_comp[v] = Kp * (self._q_des[k] - self._joint_states[k][0])
+        qdot_comp[v] = -Kv * self._joint_states[k][1]
         tau_compensated[v] += q_comp[v] + qdot_comp[v]
 
-    # print("Tau = " + str(tau_compensated.transpose()))
+    if not self._is_set_point_ctrl:
+      print("Tau = " + str(tau_compensated.transpose()))
 
     self.publishJointEfforts(effort=True, cmd=tau_compensated)
 

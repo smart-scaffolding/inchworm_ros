@@ -158,18 +158,34 @@ def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
     machine_name=island
   )
 
+  # i = 0
+  # args_rqt_plot = ""
+  # for i in range(n_joints):
+  #   args_rqt_plot += args_rqt.format(i)
+  # node_rqt_plot_pos = roslaunch.core.Node(
+  #   package="rqt_plot",
+  #   node_type="rqt_plot",
+  #   name="JointStatePos_plot",
+  #   namespace=namespace,
+  #   output="screen",
+  #   args=(args_rqt_plot)
+  # )
+
   i = 0
-  args_rqt = namespace + "joint_states/position[{}] "
+  args_rqt_pos = namespace + "joint_states/position[{}] "
+  args_rqt = namespace + "joint_states/effort[{}] "
   args_rqt_plot = ""
+  args_rqt_pos_plot = ""
   for i in range(n_joints):
     args_rqt_plot += args_rqt.format(i)
+    args_rqt_pos_plot += args_rqt_pos.format(i)
   node_rqt_plot = roslaunch.core.Node(
     package="rqt_plot",
     node_type="rqt_plot",
-    name="JointStatePos_plot",
+    name="JointState_plot",
     namespace=namespace,
     output="screen",
-    args=(args_rqt_plot)
+    args=(args_rqt_plot + args_rqt_pos_plot)
   )
 
   spawnNodes = spawn_node(
@@ -203,8 +219,13 @@ def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
     # spawnCameraNode,
     node_state
     # node_tf
-    # node_rqt_plot
+    ,
+    node_rqt_plot
   ]
+
+  is_set_point_ctrl = rospy.set_param(namespace + "set_point_enable", True)
+  walk = rospy.set_param(namespace + "default_conf", True)
+
   return nodes
 
 def setupIslands(islandNamespace, island_id, robots):
