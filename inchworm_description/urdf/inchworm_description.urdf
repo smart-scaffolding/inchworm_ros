@@ -109,4 +109,16 @@
     <child link="link_4"/>
     <limit effort="30.0" lower="0.0" upper="0.0" velocity="0.0"/>
   </joint>
+  <link name="link_5">
+    <inertial>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <mass value="1.0"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+  <joint name="temp_joint" type="fixed">
+    <origin xyz="0.051962 0.02982944 -0.307162" rpy="0.0 0.0 0.0"/>
+    <parent link="link_4"/>
+    <child link="link_5"/>
+  </joint>
 </robot>

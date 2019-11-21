@@ -219,8 +219,8 @@ def setupRobots(islandNamespace, robotNamespace, island_id, robot_id):
     # spawnCameraNode,
     node_state
     # node_tf
-    ,
-    node_rqt_plot
+    # ,
+    # node_rqt_plot
   ]
 
   is_set_point_ctrl = rospy.set_param(namespace + "set_point_enable", True)

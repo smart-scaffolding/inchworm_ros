@@ -26,6 +26,7 @@ l_link_rad = 0.05
 
 use_ftSensors = True
 
+
 def orange():
   col_orange = urdf.Material(
     name="orange",
@@ -36,9 +37,11 @@ def orange():
   )
   return col_orange
 
+
 def black():
   col_black = urdf.Material(name="black", color=urdf.Color([0, 0, 0, 1.0]))
   return col_black
+
 
 def white():
   col_white = urdf.Material(
@@ -49,6 +52,7 @@ def white():
                       1.0])
   )
   return col_white
+
 
 def frame_inertial(scale=1):
   """ Return default inertial """
@@ -72,6 +76,7 @@ def frame_inertial(scale=1):
                           0])
   )
 
+
 def frame_collision(scale=1):
   """ Return default collision """
   # if geometry is None:
@@ -82,6 +87,7 @@ def frame_collision(scale=1):
   # if origin is None:
   origin = urdf.Pose(xyz=[0, 0, 0], rpy=[0, 0, 0])
   return urdf.Collision(geometry=geometry, origin=origin)
+
 
 def frame_visual(scale=10):
   """ Return default collision """
@@ -95,6 +101,7 @@ def frame_visual(scale=10):
   # if origin is None:
   origin = urdf.Pose(xyz=[0, 0, 0], rpy=[0, 0, 0])
   return urdf.Visual(geometry=geometry, origin=origin, material=orange())
+
 
 def default_inertial():
   """ Return default inertial """
@@ -111,6 +118,7 @@ def default_inertial():
                           0])
   )
 
+
 def default_collision(geometry=None, origin=None):
   """ Return default collision """
   if geometry is None:
@@ -118,6 +126,7 @@ def default_collision(geometry=None, origin=None):
   if origin is None:
     origin = urdf.Pose(xyz=[0, 0, n_len / 2], rpy=[0, 0, 0])
   return urdf.Collision(geometry=geometry, origin=origin)
+
 
 def default_visual(geometry=None, origin=None):
   if geometry is None:
@@ -130,12 +139,14 @@ def default_visual(geometry=None, origin=None):
     material=urdf.Material("Gazebo/Black")
   )
 
+
 def default_dynamics(damping=None, friction=None):
   if damping is None:
     damping = 0.7
   if friction is None:
     friction = 0.
   return urdf.JointDynamics(damping=damping, friction=friction)
+
 
 def generate_robot(namespace):
   """ Generate Inverted Pendulum URDF """
@@ -267,6 +278,7 @@ def generate_robot(namespace):
 
   return robot
 
+
 def add_transmission_plugins(robot, effort=True):
 
   joints = get_all_joints(robot)
@@ -291,7 +303,10 @@ def add_transmission_plugins(robot, effort=True):
     t = urdf.Transmission(joint + "_trans")
     t.type = "transmission_interface/SimpleTransmission"
     transjoint = urdf.TransmissionJoint(name=joint)
-    transjoint.add_aggregate("hardwareInterface", "EffortJointInterface")
+    transjoint.add_aggregate(
+      "hardwareInterface",
+      "hardware_interface/EffortJointInterface"
+    )
     t.add_aggregate("joint", transjoint)
     actuator = urdf.Actuator(joint + "_motor")
     actuator.mechanicalReduction = 1
@@ -299,6 +314,7 @@ def add_transmission_plugins(robot, effort=True):
     robot.add_aggregate("transmission", t)
 
   return robot
+
 
 def add_rgbd_camera(robot, scale=1, parent_link_name="base_plate"):
   _x = (0.033 / 2)
@@ -331,6 +347,7 @@ def add_rgbd_camera(robot, scale=1, parent_link_name="base_plate"):
   )
   robot.add_joint(j_world)
   return (robot, l_frame.name)
+
 
 def add_gazebo_plugins(
   robot,
@@ -582,6 +599,7 @@ def add_gazebo_plugins(
 
   return robot
 
+
 def generate_urdf(robot):
   """ Save robot URDF file """
   xml_text = robot.to_xml_string()
@@ -590,9 +608,11 @@ def generate_urdf(robot):
     urdf_file.write(xml_text)
   return
 
+
 def get_continous_joints(robot):
   """ Get robot revolute joints """
   return [joint for joint in robot.joints if joint.type == "continuous"]
+
 
 def get_all_continuous_joints_names(robot):
   """ Get all joints of the robot """
@@ -602,15 +622,18 @@ def get_all_continuous_joints_names(robot):
   }
   return joints
 
+
 def get_all_links(robot):
   """ Get all link names of the robot """
   return [link for link in robot.links if link.name != "base_link"]
+
 
 def main():
   """ Main """
   robot = generate_robot("inverted_pendulum")
   generate_urdf(robot)
   return
+
 
 if __name__ == "__main__":
   main()

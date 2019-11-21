@@ -13,11 +13,13 @@ import rospy
 from std_msgs.msg import Float64  # , String
 from sensor_msgs.msg import JointState
 from urdf_parser_py import urdf
+from tf import TransformListener
 
 import rbdl
 import rospkg
 
 import numpy as np
+
 
 class Inchworm(object):
   """ Default class to subscribe and publish to orthosis robots """
@@ -30,9 +32,13 @@ class Inchworm(object):
     self._namespace = namespace
     self._timestep = timestep
 
+    self.tf = TransformListener()
+
     self._is_set_point_ctrl = bool(
       rospy.get_param(namespace + "set_point_enable")
     )
+
+    self._is_set_point_ctrl = True
     self._walk = bool(rospy.get_param(namespace + "default_conf"))
 
     self._n_joints = int(rospy.get_param(namespace + "n_joints"))
@@ -46,9 +52,20 @@ class Inchworm(object):
       for typ in urdf.Joint.TYPES
     }
 
+    self._fixed_joint_names = []
+    self._floating_and_unknown_joint_names = []
     for k, v in self._m_joints_dict.items():
-      if len(v) < 1 or k == 'fixed' or k == 'floating' or k == 'unknown':
+      if len(v) < 1:
         del self._m_joints_dict[k]
+      else:
+        if k == 'fixed':
+          self._fixed_joint_names = v
+          del self._m_joints_dict[k]
+        elif k == 'floating' or k == 'unknown':
+          self._floating_and_unknown_joint_names = v
+          del self._m_joints_dict[k]
+
+    # del self._floating_and_unknown_joint_names[0]
 
     self._links = {}
     for typ, joints in self._m_joints_dict.items():
@@ -58,6 +75,12 @@ class Inchworm(object):
             namespace + "joints/{}/{}".format(typ,
                                               joint_i)
           )
+
+    self._fixed_links_and_joints = {
+      joint: rospy.get_param(namespace + "joints/fixed/{}".format(joint_i))
+      for joint_i,
+      joint in enumerate(self._fixed_joint_names)
+    }
 
     self.initializeRBDLModel()
 
@@ -181,6 +204,40 @@ class Inchworm(object):
       link in self._links.items()
     }
 
-    # print self._states_map
+    self._unique_links = list()
+    for link in self._links.values():
+      if len(self._unique_links) == 0:
+        self._unique_links.append(link[0])
+      else:
+        for i in range(2):
+          if link[i] in self._unique_links:
+            continue
+          else:
+            self._unique_links.append(link[i])
+
+    flajv = self._fixed_links_and_joints.values()
+    flajv_ = []
+    for i in flajv:
+      flajv_.append(i[1])
+
+    for i, link in enumerate(self._unique_links):
+      if link in flajv_:
+        del self._unique_links[i]
+
+    self._bodies_map = {
+      link: (
+        self._model.GetBodyId(link),
+        self._model.mBodies[self._model.GetBodyId(link)]
+      ) for link in self._unique_links
+    }
+
+    self._end_effector_positions = []
+    for frames in self._fixed_links_and_joints.values():
+      if self.tf.frameExists(frames[0]) and self.tf.frameExists(frames[1]):
+        t = self.tf.getLatestCommonTime(frames[0], frames[1])
+        position, quaternion = self.tf.lookupTransform(frames[0], frames[1], t)
+        self._end_effector_positions.extend(position)
+
+    # print self._end_effector_positions
 
     return
