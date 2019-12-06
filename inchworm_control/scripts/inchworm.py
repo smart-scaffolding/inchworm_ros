@@ -52,17 +52,17 @@ class Inchworm(object):
       for typ in urdf.Joint.TYPES
     }
 
-    self._fixed_joint_names = []
+    self._floating_joint_names = []
     self._floating_and_unknown_joint_names = []
     for k, v in self._m_joints_dict.items():
       if len(v) < 1:
         del self._m_joints_dict[k]
       else:
-        if k == 'fixed':
-          self._fixed_joint_names = v
+        if k == 'floating':
+          self._floating_joint_names = v
           del self._m_joints_dict[k]
-        elif k == 'floating' or k == 'unknown':
-          self._floating_and_unknown_joint_names = v
+        elif k == 'fixed' or k == 'unknown':
+          self._fixed_and_unknown_joint_names = v
           del self._m_joints_dict[k]
 
     # del self._floating_and_unknown_joint_names[0]
@@ -76,10 +76,10 @@ class Inchworm(object):
                                               joint_i)
           )
 
-    self._fixed_links_and_joints = {
-      joint: rospy.get_param(namespace + "joints/fixed/{}".format(joint_i))
+    self._floating_links_and_joints = {
+      joint: rospy.get_param(namespace + "joints/floating/{}".format(joint_i))
       for joint_i,
-      joint in enumerate(self._fixed_joint_names)
+      joint in enumerate(self._floating_joint_names)
     }
 
     self.initializeRBDLModel()
@@ -215,7 +215,7 @@ class Inchworm(object):
           else:
             self._unique_links.append(link[i])
 
-    flajv = self._fixed_links_and_joints.values()
+    flajv = self._floating_links_and_joints.values()
     flajv_ = []
     for i in flajv:
       flajv_.append(i[1])
@@ -232,7 +232,7 @@ class Inchworm(object):
     }
 
     self._end_effector_positions = []
-    for frames in self._fixed_links_and_joints.values():
+    for frames in self._floating_links_and_joints.values():
       if self.tf.frameExists(frames[0]) and self.tf.frameExists(frames[1]):
         t = self.tf.getLatestCommonTime(frames[0], frames[1])
         position, quaternion = self.tf.lookupTransform(frames[0], frames[1], t)

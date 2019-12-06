@@ -34,6 +34,43 @@ class TorqueControl(Inchworm):
       self._island_namespace = namespace[lower_index:upper_index]
       self._gzserver_namespace = self._island_namespace + "/gzserver/"
 
+      self.action_result = True
+      self.x_counter = -1
+      self._path = np.array(
+        [
+          np.array([0,
+                    0.1,
+                    0.]),
+          np.array([0,
+                    0.2,
+                    0.1]),
+          np.array([0,
+                    0.3,
+                    0.]),
+          np.array([0,
+                    0.1,
+                    0.]),
+          np.array([0,
+                    0.2,
+                    0.1]),
+          np.array([0,
+                    0.3,
+                    0.]),
+          np.array([0,
+                    0.2,
+                    0.1]),
+          np.array([0,
+                    0.1,
+                    0.]),
+          np.array([0,
+                    0.2,
+                    0.1]),
+          np.array([0,
+                    0.3,
+                    0.])
+        ]
+      )
+
     # self._gzserver_URI = int(
     #     rospy.get_param(self._gzserver_namespace + "URI"))
 
@@ -59,21 +96,55 @@ class TorqueControl(Inchworm):
     q1 = np.pi / 2 - (np.arctan2(z3, y3) + beta)
 
     q3 = gamma - (np.pi / 2) + q1 - q2
-    return np.array([q1, q2, q3])
+    inv_q = [q1, q2, q3]
+
+    delta = 0
+    delta_ind = []
+    self.action_result = True
+    for _, _q in enumerate(q):
+      delta_ind.append(_q - inv_q[_])
+      delta += (_q - inv_q[_])**2
+      if abs(_q - inv_q[_]) > 0.4:
+        # print(
+        #   "x_counter: {},\tcount = {},\tval = {}".format(
+        #     self.x_counter,
+        #     _,
+        #     abs(_q - inv_q[_])
+        #   )
+        # )
+        self.action_result = False
+
+    delta = np.sqrt(delta)
+    print("x_counter: {},\tdelta_ind: {}".format(self.x_counter, delta_ind))
+
+    return np.array(inv_q)
 
   def control(self, event=None, verbose=False):
     # if verbose:
     #   print(event)
     now = rospy.get_rostime().secs
 
-    self.torqueControl(i)
+    # print("x_counter: %d" % self.x_counter)
+
+    if self.action_result:
+      if self.x_counter < np.shape(self._path)[0] - 1:
+        self.x_counter += 1
+      else:
+        self.x_counter = -1
+      # else
+      # send_stop_command
+      print "Next path"
+    self.torqueControl(self._path[self.x_counter])
+
     return
 
-  def torqueControl(self, x_des):
+  def torqueControl(self, x_des):  # Try loading as an entire vector
     """ Body control """
 
+    # calc length of array
+
     Kp = 100 * self._scale
-    Kv = 1 * self._scale
+    Kv = 0.1 * self._scale
 
     if self._is_set_point_ctrl:
       if self._walk:
@@ -100,14 +171,14 @@ class TorqueControl(Inchworm):
       self._qdot[v] = 0.0
       self._qddot[v] = 0.0
 
-    if len(x_des) == 0:
-      self._x_des = np.array(x_des)
-    else:
-      self._x_des = np.array([0, 0.1, 0.])
+    # if len(x_des) == 0:
+    #   self._x_des = np.array(x_des)
+    # else:
+    self._x_des = x_des
+    # rbdl.UpdateKinematicsCustom(self._model, self._q)
     enable_ik = True
     if enable_ik:
       q_des = self.calcInverseKinematics(self._q, self._x_des, -np.pi / 2)
-      # print q_des
 
       self._q_des = {
         self._m_joints[0]: q_des[0],
