@@ -387,11 +387,12 @@ def add_gazebo_plugins(
     if child_frame is 0:
       child_frame = "base_link"
 
+    fixed_or_floating = 'fixed'
     j_world = urdf.Joint(
-      name="floating",
+      name=fixed_or_floating,
       parent="world",
       child=child_frame,
-      joint_type="floating",
+      joint_type=fixed_or_floating,
       origin=urdf.Pose(origin_xyz,
                        origin_rpy)
     )

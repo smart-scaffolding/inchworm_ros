@@ -23,56 +23,62 @@ import numpy as np
 class TorqueControl(Inchworm):
   """ Torque controller using M, C, G matrices """
 
-  def __init__(self, namespace='/', timestep=0.0001):
+  def __init__(self, namespace='/', timestep=0.001, ambf_flag=False):
     """ Initialize default timestep size """
 
-    super(TorqueControl, self).__init__(namespace=namespace, timestep=timestep)
+    super(TorqueControl,
+          self).__init__(
+            namespace=namespace,
+            timestep=timestep,
+            ambf_flag=ambf_flag
+          )
 
-    if namespace != '/':
-      lower_index = namespace.find("/island")
-      upper_index = namespace.find("/inchworm")
-      self._island_namespace = namespace[lower_index:upper_index]
-      self._gzserver_namespace = self._island_namespace + "/gzserver/"
+    if not ambf_flag:
+      if namespace != '/':
+        lower_index = namespace.find("/island")
+        upper_index = namespace.find("/inchworm")
+        self._island_namespace = namespace[lower_index:upper_index]
+        self._gzserver_namespace = self._island_namespace + "/gzserver/"
 
-      self.action_result = True
-      self.x_counter = -1
-      self._path = np.array(
-        [
-          np.array([0,
-                    0.1,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.3,
-                    0.]),
-          np.array([0,
-                    0.1,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.3,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.1,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.3,
-                    0.])
-        ]
-      )
+        # self._gzserver_URI = int(
+        #   rospy.get_param(self._gzserver_namespace + "URI"))
 
-    # self._gzserver_URI = int(
-    #     rospy.get_param(self._gzserver_namespace + "URI"))
+    self.action_result = True
+    self.x_counter = -1
+    self._path = np.array(
+      [
+        np.array([0,
+                  0.1,
+                  0.]),
+        np.array([0,
+                  0.2,
+                  0.]),
+        np.array([0,
+                  0.3,
+                  0.]),
+        np.array([0,
+                  0.1,
+                  0.]),
+        np.array([0,
+                  0.2,
+                  0.]),
+        np.array([0,
+                  0.3,
+                  0.]),
+        np.array([0,
+                  0.2,
+                  0.]),
+        np.array([0,
+                  0.1,
+                  0.]),
+        np.array([0,
+                  0.2,
+                  0.]),
+        np.array([0,
+                  0.3,
+                  0.])
+      ]
+    )
 
     rospy.Timer(rospy.Duration(self._timestep), self.control)
     return
@@ -115,7 +121,7 @@ class TorqueControl(Inchworm):
         self.action_result = False
 
     delta = np.sqrt(delta)
-    print("x_counter: {},\tdelta_ind: {}".format(self.x_counter, delta_ind))
+    # print("x_counter: {},\tdelta_ind: {}".format(self.x_counter, delta_ind))
 
     return np.array(inv_q)
 
@@ -134,83 +140,87 @@ class TorqueControl(Inchworm):
       # else
       # send_stop_command
       print "Next path"
-    self.torqueControl(self._path[self.x_counter])
+    self.torqueControl(self._path[self.x_counter], test=False)
 
     return
 
-  def torqueControl(self, x_des):  # Try loading as an entire vector
+  def torqueControl(self, x_des=None, test=False):
     """ Body control """
 
     # calc length of array
 
-    Kp = 100 * self._scale
-    Kv = 0.1 * self._scale
+    if test and self._ambf_flag:
+      self.publishJointEfforts(effort=True, init=True)
+    else:
 
-    if self._is_set_point_ctrl:
-      if self._walk:
-        joint_vals = [
-          -0.8067426250685097,
-          1.2152737554267325,
-          45.31001551257536
-        ]
-        # joint_vals = [0, 0, 0]
-        self._q_des = {
-          # self._joint_limits[joint][1] for joint in self._m_joints
-          joint: joint_vals[i] for i,
-          joint in enumerate(self._m_joints)
-        }
-      else:
-        self._q_des = {
-          joint: self._joint_limits[joint][0] for joint in self._m_joints
-        }
+      Kp = 100 * self._scale
+      Kv = 0.1 * self._scale
 
-    # Calculate Gravity
-    for k, v in self._states_map.items():
-      self._q[v] = self._joint_states[k][0]
-      # self._qdot[v] = self._joint_states[k][1]
-      self._qdot[v] = 0.0
-      self._qddot[v] = 0.0
-
-    # if len(x_des) == 0:
-    #   self._x_des = np.array(x_des)
-    # else:
-    self._x_des = x_des
-    # rbdl.UpdateKinematicsCustom(self._model, self._q)
-    enable_ik = True
-    if enable_ik:
-      q_des = self.calcInverseKinematics(self._q, self._x_des, -np.pi / 2)
-
-      self._q_des = {
-        self._m_joints[0]: q_des[0],
-        self._m_joints[1]: q_des[1],
-        self._m_joints[2]: q_des[2]
-      }
-
-    rbdl.InverseDynamics(
-      self._model,
-      self._q,
-      self._qdot,
-      self._qddot,
-      self._tau
-    )
-    self._G = self._tau
-
-    tau_compensated = np.zeros(self._model.qdot_size)
-    q_comp = np.zeros(self._model.q_size)
-    qdot_comp = np.zeros(self._model.q_size)
-
-    # Calculate error term and add to torque
-    for k, v in self._states_map.items():
-      tau_compensated[v] = 1.5 * self._G[v]
       if self._is_set_point_ctrl:
-        q_comp[v] = Kp * (self._q_des[k] - self._joint_states[k][0])
-        qdot_comp[v] = -Kv * self._joint_states[k][1]
-        tau_compensated[v] += q_comp[v] + qdot_comp[v]
-        # print(str(k) + " : " + str(self._q_des[k] - self._joint_states[k][0]))
+        if self._walk:
+          joint_vals = [
+            -0.8067426250685097,
+            1.2152737554267325,
+            45.31001551257536
+          ]
+          # joint_vals = [0, 0, 0]
+          self._q_des = {
+            # self._joint_limits[joint][1] for joint in self._m_joints
+            joint: joint_vals[i] for i,
+            joint in enumerate(self._m_joints)
+          }
+        else:
+          self._q_des = {
+            joint: self._joint_limits[joint][0] for joint in self._m_joints
+          }
 
-    # if not self._is_set_point_ctrl:
+      # Calculate Gravity
+      for k, v in self._states_map.items():
+        self._q[v] = self._joint_states[k][0]
+        # self._qdot[v] = self._joint_states[k][1]
+        self._qdot[v] = 0.0
+        self._qddot[v] = 0.0
 
-    self.publishJointEfforts(effort=True, cmd=tau_compensated)
+      # if len(x_des) == 0:
+      #   self._x_des = np.array(x_des)
+      # else:
+      self._x_des = x_des
+      # rbdl.UpdateKinematicsCustom(self._model, self._q)
+      enable_ik = True
+      if enable_ik:
+        q_des = self.calcInverseKinematics(self._q, self._x_des, -np.pi / 2)
+
+        self._q_des = {
+          self._m_joints[0]: q_des[0],
+          self._m_joints[1]: q_des[1],
+          self._m_joints[2]: q_des[2]
+        }
+
+      rbdl.InverseDynamics(
+        self._model,
+        self._q,
+        self._qdot,
+        self._qddot,
+        self._tau
+      )
+      self._G = self._tau
+
+      tau_compensated = np.zeros(self._model.qdot_size)
+      q_comp = np.zeros(self._model.q_size)
+      qdot_comp = np.zeros(self._model.q_size)
+
+      # Calculate error term and add to torque
+      for k, v in self._states_map.items():
+        tau_compensated[v] = 1.5 * self._G[v]
+        if self._is_set_point_ctrl:
+          q_comp[v] = Kp * (self._q_des[k] - self._joint_states[k][0])
+          qdot_comp[v] = -Kv * self._joint_states[k][1]
+          tau_compensated[v] += q_comp[v] + qdot_comp[v]
+          # print(str(k) + " : " + str(self._q_des[k] - self._joint_states[k][0]))
+
+      # if not self._is_set_point_ctrl:
+
+      self.publishJointEfforts(effort=True, cmd=tau_compensated)
 
     return
 
@@ -225,18 +235,21 @@ class TorqueControl(Inchworm):
     return this_string
 
 
-def generateControllerObjects():
+def generateControllerObjects(ambf_flag=False):
   """ Generate objects of the controller specified """
 
   namespaces = []
-  islands = rospy.get_param("islands")
-  for island in range(1, 1 + islands):
-    robots = rospy.get_param("/island_{}/robots".format(island))
-    for robot_id in range(1, 1 + robots):
-      namespaces.append(
-        rospy.get_param("namespace_{}_{}".format(island,
-                                                 robot_id))
-      )
+  if not ambf_flag:
+    islands = rospy.get_param("islands")
+    for island in range(1, 1 + islands):
+      robots = rospy.get_param("/island_{}/robots".format(island))
+      for robot_id in range(1, 1 + robots):
+        namespaces.append(
+          rospy.get_param("namespace_{}_{}".format(island,
+                                                   robot_id))
+        )
+  else:
+    namespaces = ["/ambf/env/inchworm/"]
 
   robot_torque_controllers = {
     namespace: TorqueControl(namespace) for namespace in namespaces
@@ -249,7 +262,7 @@ def main():
   """ main """
 
   rospy.init_node('torque_control_py', anonymous=False)
-  robot_torque_controllers = generateControllerObjects()
+  robot_torque_controllers = generateControllerObjects(ambf_flag=False)
   rospy.spin()
   del robot_torque_controllers
 
