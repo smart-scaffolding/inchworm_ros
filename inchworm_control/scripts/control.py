@@ -18,12 +18,19 @@ import rbdl
 import time
 
 import numpy as np
+import rospkg
+
+rospack = rospkg.RosPack()
+rospack.list()
+
+root_path = rospack.get_path('inchworm_control')
+trajectory_path = root_path + '/scripts/trajectory.npy'
 
 
 class TorqueControl(Inchworm):
   """ Torque controller using M, C, G matrices """
 
-  def __init__(self, namespace='/', timestep=0.0001):
+  def __init__(self, namespace='/', timestep=0.001):
     """ Initialize default timestep size """
 
     super(TorqueControl, self).__init__(namespace=namespace, timestep=timestep)
@@ -36,40 +43,8 @@ class TorqueControl(Inchworm):
 
       self.action_result = True
       self.x_counter = -1
-      self._path = np.array(
-        [
-          np.array([0,
-                    0.1,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.3,
-                    0.]),
-          np.array([0,
-                    0.1,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.3,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.1,
-                    0.]),
-          np.array([0,
-                    0.2,
-                    0.1]),
-          np.array([0,
-                    0.3,
-                    0.])
-        ]
-      )
+      self._path = np.load(trajectory_path)
+      print np.shape(self._path)
 
     # self._gzserver_URI = int(
     #     rospy.get_param(self._gzserver_namespace + "URI"))
@@ -115,7 +90,6 @@ class TorqueControl(Inchworm):
         self.action_result = False
 
     delta = np.sqrt(delta)
-    print("x_counter: {},\tdelta_ind: {}".format(self.x_counter, delta_ind))
 
     return np.array(inv_q)
 
@@ -128,13 +102,29 @@ class TorqueControl(Inchworm):
 
     if self.action_result:
       if self.x_counter < np.shape(self._path)[0] - 1:
+        # if self.x_counter * 0.001 < 8:
         self.x_counter += 1
       else:
         self.x_counter = -1
       # else
       # send_stop_command
-      print "Next path"
-    self.torqueControl(self._path[self.x_counter])
+
+    # t = self.x_counter * 0.001
+    #yapf: disable
+    # if self.x_counter >= 0:
+    #   path = [0.001*(self._path[0][i] * pow(t,3) +
+    #         self._path[1][i] * pow(t,2) +
+    #         self._path[2][i] * pow(t,1) +
+    #         self._path[3][i]) for i in range(3)]
+    # else:
+    #   path = [0.001*self._path[3][i] for i in range(3)]
+
+    t = self.x_counter * 0.001
+    path = self._path[self.x_counter]
+    print("t: {},\twaypoint: {}".format(t, path))
+    #yapf: enable
+
+    self.torqueControl(path)
 
     return
 
