@@ -23,14 +23,14 @@ import numpy as np
 class TorqueControl(Inchworm):
   """ Torque controller using M, C, G matrices """
 
-  def __init__(self, namespace='/', timestep=0.001, ambf_flag=False):
+  def __init__(self, ambf_flag, namespace='/', timestep=0.001):
     """ Initialize default timestep size """
 
     super(TorqueControl,
           self).__init__(
+            ambf_flag=ambf_flag,
             namespace=namespace,
-            timestep=timestep,
-            ambf_flag=ambf_flag
+            timestep=timestep
           )
 
     if not ambf_flag:
@@ -140,7 +140,7 @@ class TorqueControl(Inchworm):
       # else
       # send_stop_command
       print "Next path"
-    self.torqueControl(self._path[self.x_counter], test=False)
+    self.torqueControl(self._path[self.x_counter], test=True)
 
     return
 
@@ -235,7 +235,7 @@ class TorqueControl(Inchworm):
     return this_string
 
 
-def generateControllerObjects(ambf_flag=False):
+def generateControllerObjects(ambf_flag):
   """ Generate objects of the controller specified """
 
   namespaces = []
@@ -252,7 +252,8 @@ def generateControllerObjects(ambf_flag=False):
     namespaces = ["/ambf/env/inchworm/"]
 
   robot_torque_controllers = {
-    namespace: TorqueControl(namespace) for namespace in namespaces
+    namespace: TorqueControl(ambf_flag=ambf_flag,
+                             namespace=namespace) for namespace in namespaces
   }
 
   return robot_torque_controllers
@@ -262,7 +263,7 @@ def main():
   """ main """
 
   rospy.init_node('torque_control_py', anonymous=False)
-  robot_torque_controllers = generateControllerObjects(ambf_flag=False)
+  robot_torque_controllers = generateControllerObjects(ambf_flag=True)
   rospy.spin()
   del robot_torque_controllers
 

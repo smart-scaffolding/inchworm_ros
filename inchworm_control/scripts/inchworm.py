@@ -25,7 +25,7 @@ import numpy as np
 class Inchworm(object):
   """ Default class to subscribe and publish to orthosis robots """
 
-  def __init__(self, namespace="/", timestep=0.01, ambf_flag=False):
+  def __init__(self, ambf_flag, namespace="/", timestep=0.01):
     """ Initialize the class with the namespace and timestep as params """
 
     super(Inchworm, self).__init__()
@@ -35,13 +35,13 @@ class Inchworm(object):
     self._ambf_flag = ambf_flag
 
     self.base_types = ['fixed', 'floating']
-    self.base_id = False
+    self.base_id = True
 
     self._is_set_point_ctrl = True
 
     self._is_joints_init = False
 
-    if not self._ambf_flag:
+    if not ambf_flag:
       self.tf = TransformListener()
 
       self._is_set_point_ctrl = bool(
